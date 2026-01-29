@@ -693,11 +693,8 @@ def install_grub(efi_directory, fw_type, install_hybrid_grub):
     if fw_type != "bios" and fw_type != "efi":
         raise ValueError("fw_type must be 'bios' or 'efi'")
 
-    # Check if an EFI System Partition exists for hybrid mode
-    efi_system_partition = libcalamares.globalstorage.value("efiSystemPartition")
-    esp_found = any(p.get("mountPoint") == efi_system_partition for p in partitions)
-
-    if fw_type == "efi" or (install_hybrid_grub and esp_found):
+    # EFI GRUB can only be installed on EFI systems (hybrid mode adds BIOS install on EFI systems)
+    if fw_type == "efi":
         libcalamares.utils.debug("Bootloader: grub (efi)")
         libcalamares.utils.debug(f"install_hybrid_grub: {install_hybrid_grub}")
         installation_root_path = libcalamares.globalstorage.value("rootMountPoint")
@@ -740,11 +737,13 @@ def install_grub(efi_directory, fw_type, install_hybrid_grub):
 
             shutil.copy2(efi_file_source, efi_file_target)
 
-    # For BIOS install in hybrid mode, we need either a bootLoader defined or an ESP to find the disk
+    # BIOS GRUB: install on BIOS systems, or on EFI systems when hybrid mode is enabled
     boot_loader = libcalamares.globalstorage.value("bootLoader")
-    can_install_bios = boot_loader is not None or esp_found
+    efi_system_partition = libcalamares.globalstorage.value("efiSystemPartition")
+    esp_found = any(p.get("mountPoint") == efi_system_partition for p in partitions)
+    can_install_bios_hybrid = boot_loader is not None or esp_found
 
-    if fw_type == "bios" or (install_hybrid_grub and can_install_bios):
+    if fw_type == "bios" or (fw_type == "efi" and install_hybrid_grub and can_install_bios_hybrid):
         libcalamares.utils.debug("Bootloader: grub (bios)")
         run_grub_install("bios", partitions, efi_directory, install_hybrid_grub)
 
